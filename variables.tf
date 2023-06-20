@@ -14,6 +14,12 @@ variable "github_oauth_token" {
   default     = ""
 }
 
+variable "github_oauth_token_type" {
+  type        = string
+  description = "GitHub OAuth Token Type"
+  default     = "PLAINTEXT"
+}
+
 variable "github_webhook_events" {
   type        = list(string)
   description = "A list of events which should trigger the webhook. See a list of [available events](https://developer.github.com/v3/activity/events/types/)"
