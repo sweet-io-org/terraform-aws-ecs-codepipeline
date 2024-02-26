@@ -14,11 +14,11 @@ variable "github_oauth_token" {
   default     = ""
 }
 
-variable "github_oauth_token_type" {
-  type        = string
-  description = "GitHub OAuth Token Type"
-  default     = "PLAINTEXT"
-}
+# variable "github_oauth_token_type" {
+#   type        = string
+#   description = "GitHub OAuth Token Type"
+#   default     = "PLAINTEXT"
+# }
 
 variable "github_webhook_events" {
   type        = list(string)
