@@ -211,22 +211,22 @@ data "aws_region" "default" {
 }
 
 module "codebuild" {
-  enabled                               = module.this.enabled
-  source                                = "cloudposse/codebuild/aws"
-  version                               = "2.0.1"
-  build_image                           = var.build_image
-  build_compute_type                    = var.build_compute_type
-  build_timeout                         = var.build_timeout
-  buildspec                             = var.buildspec
-  delimiter                             = module.this.delimiter
-  attributes                            = ["build"]
-  privileged_mode                       = var.privileged_mode
-  aws_region                            = var.region != "" ? var.region : data.aws_region.default.name
-  aws_account_id                        = var.aws_account_id != "" ? var.aws_account_id : data.aws_caller_identity.default.account_id
-  image_repo_name                       = var.image_repo_name
-  image_tag                             = var.image_tag
-  github_token                          = var.github_oauth_token
-  github_token_type                     = var.github_oauth_token_type
+  enabled            = module.this.enabled
+  source             = "cloudposse/codebuild/aws"
+  version            = "2.0.1"
+  build_image        = var.build_image
+  build_compute_type = var.build_compute_type
+  build_timeout      = var.build_timeout
+  buildspec          = var.buildspec
+  delimiter          = module.this.delimiter
+  attributes         = ["build"]
+  privileged_mode    = var.privileged_mode
+  aws_region         = var.region != "" ? var.region : data.aws_region.default.name
+  aws_account_id     = var.aws_account_id != "" ? var.aws_account_id : data.aws_caller_identity.default.account_id
+  image_repo_name    = var.image_repo_name
+  image_tag          = var.image_tag
+  github_token       = var.github_oauth_token
+  # github_token_type                     = var.github_oauth_token_type
   environment_variables                 = var.environment_variables
   badge_enabled                         = var.badge_enabled
   cache_type                            = var.cache_type
