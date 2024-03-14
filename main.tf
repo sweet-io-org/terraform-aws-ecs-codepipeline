@@ -1,5 +1,6 @@
 locals {
-  codestar_enabled = module.this.enabled && var.codestar_connection_arn != "" && var.codestar_connection_arn != null
+  codestar_enabled     = module.this.enabled && var.codestar_connection_arn != "" && var.codestar_connection_arn != null
+  github_project_count = var.github_oauth_token != "" || var.github_provider == "GitHub" ? 1 : 0
 }
 
 module "codepipeline_label" {
@@ -259,7 +260,7 @@ resource "aws_iam_role_policy_attachment" "codebuild_extras" {
 }
 
 resource "aws_codepipeline" "default" {
-  count    = module.this.enabled && var.github_oauth_token != "" ? 1 : 0
+  count    = module.this.enabled && local.github_project_count > 0 && !local.codestar_enabled ? 1 : 0
   name     = module.codepipeline_label.id
   role_arn = join("", aws_iam_role.default.*.arn)
 
@@ -340,9 +341,89 @@ resource "aws_codepipeline" "default" {
   }
 }
 
+resource "aws_codepipeline" "default_codestart" {
+  count    = module.this.enabled && local.github_project_count > 0 && local.codestar_enabled ? 1 : 0
+  name     = module.codepipeline_label.id
+  role_arn = join("", aws_iam_role.default.*.arn)
+
+  artifact_store {
+    location = join("", aws_s3_bucket.default.*.bucket)
+    type     = "S3"
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.default,
+    aws_iam_role_policy_attachment.s3,
+    aws_iam_role_policy_attachment.codebuild,
+    aws_iam_role_policy_attachment.codebuild_s3,
+    aws_iam_role_policy_attachment.codebuild_extras
+  ]
+
+  stage {
+    name = "Source"
+
+    action {
+      name             = "GitHub_Source"
+      category         = "Source"
+      owner            = "AWS"
+      provider         = "CodeStarSourceConnection"
+      version          = "1"
+      output_artifacts = ["code"]
+      configuration = {
+        ConnectionArn    = var.codestar_connection_arn
+        FullRepositoryId = "${var.repo_owner}/${var.repo_name}"
+        BranchName       = var.branch
+        DetectChanges    = var.poll_source_changes
+      }
+    }
+  }
+
+  stage {
+    name = "Build"
+
+    action {
+      name     = "Build"
+      category = "Build"
+      owner    = "AWS"
+      provider = "CodeBuild"
+      version  = "1"
+
+      input_artifacts  = ["code"]
+      output_artifacts = ["task"]
+
+      configuration = {
+        ProjectName = module.codebuild.project_name
+      }
+    }
+  }
+
+  stage {
+    name = "Deploy"
+
+    action {
+      name            = "Deploy"
+      category        = "Deploy"
+      owner           = "AWS"
+      provider        = "ECS"
+      input_artifacts = ["task"]
+      version         = "1"
+
+      configuration = {
+        ClusterName = var.ecs_cluster_name
+        ServiceName = var.service_name
+      }
+    }
+  }
+
+  lifecycle {
+    # prevent github OAuthToken from causing updates, since it's removed from state file
+    ignore_changes = [stage[0].action[0].configuration]
+  }
+}
+
 # https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference-CodestarConnectionSource.html#action-reference-CodestarConnectionSource-example
 resource "aws_codepipeline" "bitbucket" {
-  count    = local.codestar_enabled ? 1 : 0
+  count    = local.codestar_enabled && local.github_project_count == 0 ? 1 : 0
   name     = module.codepipeline_label.id
   role_arn = join("", aws_iam_role.default.*.arn)
 
@@ -419,7 +500,7 @@ resource "aws_codepipeline" "bitbucket" {
 }
 
 resource "random_string" "webhook_secret" {
-  count  = module.this.enabled && var.webhook_enabled ? 1 : 0
+  count  = module.this.enabled && var.webhook_enabled && !(local.github_project_count > 0 && local.codestar_enabled) ? 1 : 0
   length = 32
 
   # Special characters are not allowed in webhook secret (AWS silently ignores webhook callbacks)
@@ -432,7 +513,7 @@ locals {
 }
 
 resource "aws_codepipeline_webhook" "webhook" {
-  count           = module.this.enabled && var.webhook_enabled ? 1 : 0
+  count           = module.this.enabled && var.webhook_enabled && !(local.github_project_count > 0 && local.codestar_enabled) ? 1 : 0
   name            = module.codepipeline_label.id
   authentication  = var.webhook_authentication
   target_action   = var.webhook_target_action
@@ -449,6 +530,7 @@ resource "aws_codepipeline_webhook" "webhook" {
 }
 
 module "github_webhooks" {
+  count   = module.this.enabled && var.webhook_enabled && !(local.github_project_count > 0 && local.codestar_enabled) ? 1 : 0
   source  = "cloudposse/repository-webhooks/github"
   version = "0.13.0"
 

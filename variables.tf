@@ -26,6 +26,12 @@ variable "github_webhook_events" {
   default     = ["push"]
 }
 
+variable "github_provider" {
+  type        = string
+  description = "GitHub Provider"
+  default     = "GitHub"
+}
+
 variable "repo_owner" {
   type        = string
   description = "GitHub Organization or Username"
